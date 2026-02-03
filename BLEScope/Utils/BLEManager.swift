@@ -26,8 +26,14 @@ final class BLEManager: NSObject, ObservableObject {
 
     private var peripheralsById: [UUID: CBPeripheral] = [:]
     private var rssiById: [UUID: NSNumber] = [:]
+    private var smoothedRssiById: [UUID: Double] = [:]
     private var connectableById: [UUID: Bool] = [:]
     private var nameById: [UUID: String] = [:]
+    private var discoveryOrder: [UUID] = []
+    private var displayOrder: [UUID] = []
+    private let rssiAlpha = 0.2
+    private let resortInterval: TimeInterval = 2.0
+    private var lastResortAt: Date = .distantPast
 
     private var characteristicsByKey: [CharacteristicKey: CBCharacteristic] = [:]
 
@@ -46,8 +52,12 @@ final class BLEManager: NSObject, ObservableObject {
         }
         discovered.removeAll()
         rssiById.removeAll()
+        smoothedRssiById.removeAll()
         connectableById.removeAll()
         nameById.removeAll()
+        discoveryOrder.removeAll()
+        displayOrder.removeAll()
+        lastResortAt = .distantPast
         central.scanForPeripherals(withServices: nil,
                                    options: [CBCentralManagerScanOptionAllowDuplicatesKey: true])
         isScanning = true
@@ -171,7 +181,20 @@ final class BLEManager: NSObject, ObservableObject {
     }
 
     private func updateDiscovered() {
-        let items: [DiscoveredPeripheral] = peripheralsById.compactMap { id, peripheral in
+        let now = Date()
+        if now.timeIntervalSince(lastResortAt) >= resortInterval {
+            displayOrder = peripheralsById.keys.sorted {
+                (smoothedRssiById[$0] ?? -127) > (smoothedRssiById[$1] ?? -127)
+            }
+            lastResortAt = now
+        } else {
+            for id in discoveryOrder where !displayOrder.contains(id) {
+                displayOrder.append(id)
+            }
+        }
+
+        let items: [DiscoveredPeripheral] = displayOrder.compactMap { id in
+            guard let peripheral = peripheralsById[id] else { return nil }
             let name = nameById[id] ?? peripheral.name ?? ""
             let rssi = rssiById[id]?.intValue ?? -127
             if hideUnnamedDevices && name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -188,7 +211,6 @@ final class BLEManager: NSObject, ObservableObject {
                 peripheral: peripheral
             )
         }
-        .sorted { $0.rssi.intValue > $1.rssi.intValue }
 
         DispatchQueue.main.async {
             self.discovered = items
@@ -255,6 +277,13 @@ extension BLEManager: CBCentralManagerDelegate {
                         rssi RSSI: NSNumber) {
         peripheralsById[peripheral.identifier] = peripheral
         rssiById[peripheral.identifier] = RSSI
+        let current = smoothedRssiById[peripheral.identifier] ?? RSSI.doubleValue
+        let next = rssiAlpha * RSSI.doubleValue + (1.0 - rssiAlpha) * current
+        smoothedRssiById[peripheral.identifier] = next
+
+        if !discoveryOrder.contains(peripheral.identifier) {
+            discoveryOrder.append(peripheral.identifier)
+        }
 
         if let name = advertisementData[CBAdvertisementDataLocalNameKey] as? String {
             nameById[peripheral.identifier] = name
