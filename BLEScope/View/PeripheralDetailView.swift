@@ -18,12 +18,14 @@ struct PeripheralDetailView: View {
                     Spacer()
                     Text(peripheral.name ?? "(no name)")
                         .foregroundColor(.secondary)
+                        .textSelection(.enabled)
                 }
                 HStack {
                     Text("UUID")
                     Spacer()
                     Text(peripheral.identifier.uuidString)
                         .foregroundColor(.secondary)
+                        .textSelection(.enabled)
                 }
                 HStack {
                     Text("Status")

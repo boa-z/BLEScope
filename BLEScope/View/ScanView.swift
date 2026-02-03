@@ -4,6 +4,7 @@ import CoreBluetooth
 struct ScanView: View {
     @EnvironmentObject var ble: BLEManager
     @State private var filterText = ""
+    @State private var serviceFilterText = ""
 
     var filteredDevices: [DiscoveredPeripheral] {
         let trimmed = filterText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -35,11 +36,13 @@ struct ScanView: View {
                     } label: {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(device.name)
+                                HighlightText(text: device.name, query: filterText)
                                     .font(.headline)
-                                Text(device.id.uuidString)
+                                    .textSelection(.enabled)
+                                HighlightText(text: device.id.uuidString, query: filterText)
                                     .font(.caption)
                                     .foregroundColor(.secondary)
+                                    .textSelection(.enabled)
                             }
                             Spacer()
                             VStack(alignment: .trailing, spacing: 4) {
@@ -66,5 +69,33 @@ struct ScanView: View {
                 ble.startScan()
             }
         }
+    }
+}
+
+private struct HighlightText: View {
+    let text: String
+    let query: String
+
+    var body: some View {
+        if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            Text(text)
+        } else {
+            highlightedText()
+        }
+    }
+
+    private func highlightedText() -> Text {
+        let lowerText = text.lowercased()
+        let lowerQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !lowerQuery.isEmpty, let range = lowerText.range(of: lowerQuery) else {
+            return Text(text)
+        }
+
+        var attributed = AttributedString(text)
+        if let attrRange = Range(range, in: attributed) {
+            attributed[attrRange].foregroundColor = .yellow
+            attributed[attrRange].backgroundColor = .yellow.opacity(0.25)
+        }
+        return Text(attributed)
     }
 }

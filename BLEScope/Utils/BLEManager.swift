@@ -70,6 +70,7 @@ final class BLEManager: NSObject, ObservableObject {
         appendLog(direction: .event, note: "Scan stopped")
     }
 
+
     func connect(_ peripheral: CBPeripheral) {
         central.connect(peripheral, options: nil)
         appendLog(direction: .event, peripheral: peripheral, note: "Connecting")
@@ -121,6 +122,16 @@ final class BLEManager: NSObject, ObservableObject {
 
     func clearLogs() {
         logs.removeAll()
+    }
+
+    func clearHistory(serviceUUID: CBUUID, characteristicUUID: CBUUID, direction: LogEntry.Direction) {
+        let service = serviceUUID.uuidString
+        let characteristic = characteristicUUID.uuidString
+        logs.removeAll {
+            $0.direction == direction
+            && $0.serviceUUID == service
+            && $0.characteristicUUID == characteristic
+        }
     }
 
     func exportLogs() -> URL? {
@@ -261,6 +272,7 @@ final class BLEManager: NSObject, ObservableObject {
             self.services = list
         }
     }
+
 }
 
 extension BLEManager: CBCentralManagerDelegate {
