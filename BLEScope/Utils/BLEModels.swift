@@ -7,6 +7,7 @@ struct DiscoveredPeripheral: Identifiable, Hashable {
     var rssi: NSNumber
     var isConnectable: Bool
     var peripheral: CBPeripheral
+    var lastConnectedAt: Date?
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
@@ -25,6 +26,7 @@ struct ServiceInfo: Identifiable {
 
 struct CharacteristicInfo: Identifiable {
     let id: String
+    let peripheralId: UUID
     let serviceUUID: CBUUID
     let uuid: CBUUID
     var properties: CBCharacteristicProperties
@@ -37,20 +39,27 @@ struct CharacteristicKey: Hashable {
     let characteristicUUID: CBUUID
 }
 
-struct LogEntry: Identifiable {
-    enum Direction: String {
+struct LogEntry: Identifiable, Codable {
+    enum Direction: String, Codable {
         case rx = "RX"
         case tx = "TX"
         case event = "EVT"
         case error = "ERR"
     }
 
-    let id = UUID()
+    let id: UUID
     let timestamp: Date
     let direction: Direction
     let peripheralName: String
+    let peripheralId: String?
     let serviceUUID: String?
     let characteristicUUID: String?
     let data: Data?
     let note: String?
+}
+
+struct ConnectionStep: Identifiable {
+    let id = UUID()
+    let timestamp: Date
+    let message: String
 }

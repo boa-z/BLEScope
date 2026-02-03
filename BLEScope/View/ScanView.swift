@@ -5,6 +5,12 @@ struct ScanView: View {
     @EnvironmentObject var ble: BLEManager
     @State private var filterText = ""
     @State private var serviceFilterText = ""
+    private static let lastConnectedFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter
+    }()
 
     var filteredDevices: [DiscoveredPeripheral] {
         let trimmed = filterText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -43,14 +49,25 @@ struct ScanView: View {
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                     .textSelection(.enabled)
+                                if let lastConnectedAt = device.lastConnectedAt {
+                                    Text("Last: \(Self.lastConnectedFormatter.string(from: lastConnectedAt))")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
                             }
                             Spacer()
                             VStack(alignment: .trailing, spacing: 4) {
                                 Text("RSSI: \(device.rssi)")
                                     .font(.caption)
-                                Text(device.isConnectable ? "Connectable" : "Unknown")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
+                                if ble.isConnected(device.id) {
+                                    Text("Connected")
+                                        .font(.caption2)
+                                        .foregroundColor(.green)
+                                } else {
+                                    Text(device.isConnectable ? "Connectable" : "Unknown")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
                             }
                         }
                     }

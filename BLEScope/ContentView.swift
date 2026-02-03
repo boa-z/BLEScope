@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct ContentView: View {
     @StateObject private var ble = BLEManager()
@@ -13,6 +14,12 @@ struct ContentView: View {
     var body: some View {
         RootView()
             .environmentObject(ble)
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+                ble.persistLogsIfNeeded()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
+                ble.persistLogsIfNeeded()
+            }
     }
 }
 

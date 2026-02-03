@@ -132,6 +132,7 @@
 			buildPhases = (
 				ABB1E6F925495DFB00693793 /* Sources */,
 				ABB1E6FA25495DFB00693793 /* Frameworks */,
+				B0D0F00D2F3A4B5C00ABCDEF /* Inject Git Version */,
 				ABB1E6FB25495DFB00693793 /* Resources */,
 			);
 			buildRules = (
@@ -187,6 +188,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		B0D0F00D2F3A4B5C00ABCDEF /* Inject Git Version */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Inject Git Version";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "INFO_PLIST=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\n\nCONFIG_BRANCH=$(cd \"${SRCROOT}\" && git rev-parse --abbrev-ref HEAD 2>/dev/null || echo \"unknown\")\nCONFIG_COMMIT=$(cd \"${SRCROOT}\" && git log -1 --format=%h 2>/dev/null || echo \"unknown\")\n\n/usr/libexec/PlistBuddy -c \"Set :GitBranch $CONFIG_BRANCH\" \"$INFO_PLIST\" 2>/dev/null || /usr/libexec/PlistBuddy -c \"Add :GitBranch string $CONFIG_BRANCH\" \"$INFO_PLIST\"\n/usr/libexec/PlistBuddy -c \"Set :GitCommitShort $CONFIG_COMMIT\" \"$INFO_PLIST\" 2>/dev/null || /usr/libexec/PlistBuddy -c \"Add :GitCommitShort string $CONFIG_COMMIT\" \"$INFO_PLIST\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		ABB1E6F925495DFB00693793 /* Sources */ = {
