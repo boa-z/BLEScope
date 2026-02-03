@@ -53,6 +53,7 @@ jobs:
           filetype_parameter: ${{ steps.filetype_parameter.outputs.filetype_parameter }}
           file_to_build: ${{ steps.file_to_build.outputs.file_to_build }}
         run: |
+          set -o pipefail
           xcodebuild archive \
             -archivePath "$archive_path" \
             -scheme "$scheme" \
@@ -60,10 +61,18 @@ jobs:
             -destination "generic/platform=iOS" \
             -sdk iphoneos \
             CODE_SIGNING_ALLOWED=NO \
-            -configuration Release | xcpretty && exit ${PIPESTATUS[0]}
+            -configuration Release | tee build.log
 
       - name: Tar Build Artifact
+        if: success()
         run: tar -cvf "$archive_path.xcarchive.tar" "$archive_path.xcarchive"
+
+      - name: Upload Build Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build.log
+          path: build.log
 
       - name: Upload Archive Artifact
         uses: actions/upload-artifact@v4
@@ -72,10 +81,12 @@ jobs:
           path: ${{ env.archive_path }}.xcarchive.tar
 
       - name: Create IPA
+        if: success()
         run: |
           sh .github/build_github.sh
 
       - name: Upload IPA Artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.scheme }}.ipa
