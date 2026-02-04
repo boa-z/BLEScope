@@ -20,13 +20,14 @@
 		ABB1E7292549617700693793 /* Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABB1E7282549617700693793 /* Extensions.swift */; };
 		AC10A8D025B74903BACA76A6 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFBFD86BC6FF4DC2ABC260FD /* RootView.swift */; };
 		ACE17EFFDCB045C98B0046EA /* BLEManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEA5941A2EC542DF97B55674 /* BLEManager.swift */; };
-		D5D44C011BF8434794C1A997 /* ToolsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0392B6DD41CE47A88D62BCE0 /* ToolsView.swift */; };
 		B0044B47E35249CB9D7AC087 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4519289CEEC74768B63639A2 /* SettingsView.swift */; };
 		BB952F68DF9E4E4EAF767B62 /* CharacteristicActionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D82039153FD4F54BAFBD4C9 /* CharacteristicActionView.swift */; };
 		D03E0A9143E64806A22B0147 /* BLEModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9938B041A92944BDB2D2C389 /* BLEModels.swift */; };
+		D5D44C011BF8434794C1A997 /* ToolsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0392B6DD41CE47A88D62BCE0 /* ToolsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0392B6DD41CE47A88D62BCE0 /* ToolsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolsView.swift; sourceTree = "<group>"; };
 		4519289CEEC74768B63639A2 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		5D82039153FD4F54BAFBD4C9 /* CharacteristicActionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacteristicActionView.swift; sourceTree = "<group>"; };
 		69AA19B04674412198961B05 /* PeripheralDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeripheralDetailView.swift; sourceTree = "<group>"; };
@@ -43,7 +44,6 @@
 		ABB1E70E25495DFC00693793 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		ABB1E7282549617700693793 /* Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Extensions.swift; sourceTree = "<group>"; };
 		AEA5941A2EC542DF97B55674 /* BLEManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEManager.swift; sourceTree = "<group>"; };
-		0392B6DD41CE47A88D62BCE0 /* ToolsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolsView.swift; sourceTree = "<group>"; };
 		D3043B14B1F1444991C57420 /* LogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogView.swift; sourceTree = "<group>"; };
 		D6A13EF7548A48F48BFA520B /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
 		EFBFD86BC6FF4DC2ABC260FD /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
