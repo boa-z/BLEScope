@@ -116,8 +116,11 @@ private struct PacketBuilderView: View {
                     }
                     .disabled(draftPayload.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     Button("Save") {
-                        saveDraft()
-                        toast = ToolsToast(title: "Saved", message: "Packet saved.")
+                        if saveDraft() {
+                            toast = ToolsToast(title: "Saved", message: "Packet saved.")
+                        } else {
+                            toast = ToolsToast(title: "Save Failed", message: "Name and payload cannot be empty.")
+                        }
                     }
                     .disabled(draftName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                               || draftPayload.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -195,14 +198,19 @@ private struct PacketBuilderView: View {
         self.templates = templates.sorted { $0.updatedAt > $1.updatedAt }
     }
 
-    private func saveDraft() {
+    @discardableResult
+    private func saveDraft() -> Bool {
         var current = templates
         let trimmedName = draftName.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedPayload = draftPayload.trimmingCharacters(in: .whitespacesAndNewlines)
 
+        guard !trimmedName.isEmpty, !trimmedPayload.isEmpty else {
+            return false
+        }
+
         if let selectedId = selectedTemplateId,
-           let index = current.firstIndex(where: { $0.id == selectedId }) {
-            current[index].name = trimmedName
+           let index = current.firstIndex(where: { $0.id == selectedId }),
+           current[index].name.caseInsensitiveCompare(trimmedName) == .orderedSame {
             current[index].payload = trimmedPayload
             current[index].updatedAt = Date()
         } else if let index = current.firstIndex(where: { $0.name.caseInsensitiveCompare(trimmedName) == .orderedSame }) {
@@ -216,6 +224,7 @@ private struct PacketBuilderView: View {
         }
 
         saveTemplates(current)
+        return true
     }
 
     private func deleteTemplate(_ id: UUID) {
