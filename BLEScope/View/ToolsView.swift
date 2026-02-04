@@ -177,27 +177,21 @@ private struct PacketBuilderView: View {
     }
 
     private func loadTemplates() {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-
-        if let jsonString = UserDefaults.standard.string(forKey: storageKey),
-           let data = jsonString.data(using: .utf8),
+        let decoder = PropertyListDecoder()
+        if let data = UserDefaults.standard.data(forKey: storageKey),
            let decoded = try? decoder.decode([PacketTemplate].self, from: data) {
             templates = decoded.sorted { $0.updatedAt > $1.updatedAt }
-            return
+        } else {
+            templates = []
         }
-
-        templates = []
     }
 
     private func saveTemplates(_ templates: [PacketTemplate]) {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        guard let data = try? encoder.encode(templates),
-              let string = String(data: data, encoding: .utf8) else {
+        let encoder = PropertyListEncoder()
+        guard let data = try? encoder.encode(templates) else {
             return
         }
-        UserDefaults.standard.set(string, forKey: storageKey)
+        UserDefaults.standard.set(data, forKey: storageKey)
         self.templates = templates.sorted { $0.updatedAt > $1.updatedAt }
     }
 
