@@ -86,17 +86,13 @@ private struct ToolCard: View {
 }
 
 private struct PacketBuilderView: View {
-    @AppStorage("tools_packet_templates_v1")
-    private var templatesData: Data = Data()
+    private let storageKey = "tools_packet_templates_v1"
 
     @State private var draftName = ""
     @State private var draftPayload = ""
     @State private var selectedTemplateId: UUID?
     @State private var toast: ToolsToast?
-
-    private var templates: [PacketTemplate] {
-        loadTemplates()
-    }
+    @State private var templates: [PacketTemplate] = []
 
     var body: some View {
         Form {
@@ -172,30 +168,37 @@ private struct PacketBuilderView: View {
             }
         }
         .navigationTitle("Packet Builder")
+        .onAppear {
+            loadTemplates()
+        }
         .alert(item: $toast) { alert in
             Alert(title: Text(alert.title), message: Text(alert.message), dismissButton: .default(Text("OK")))
         }
     }
 
-    private func loadTemplates() -> [PacketTemplate] {
-        guard !templatesData.isEmpty else {
-            return []
-        }
+    private func loadTemplates() {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        if let decoded = try? decoder.decode([PacketTemplate].self, from: templatesData) {
-            return decoded.sorted { $0.updatedAt > $1.updatedAt }
+
+        if let jsonString = UserDefaults.standard.string(forKey: storageKey),
+           let data = jsonString.data(using: .utf8),
+           let decoded = try? decoder.decode([PacketTemplate].self, from: data) {
+            templates = decoded.sorted { $0.updatedAt > $1.updatedAt }
+            return
         }
-        return []
+
+        templates = []
     }
 
     private func saveTemplates(_ templates: [PacketTemplate]) {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
-        guard let data = try? encoder.encode(templates) else {
+        guard let data = try? encoder.encode(templates),
+              let string = String(data: data, encoding: .utf8) else {
             return
         }
-        templatesData = data
+        UserDefaults.standard.set(string, forKey: storageKey)
+        self.templates = templates.sorted { $0.updatedAt > $1.updatedAt }
     }
 
     private func saveDraft() {
