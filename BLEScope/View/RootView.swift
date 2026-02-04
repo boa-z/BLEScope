@@ -15,6 +15,12 @@ struct RootView: View {
                     Text("Logs")
                 }
 
+            ToolsView()
+                .tabItem {
+                    Image(systemName: "wrench.and.screwdriver")
+                    Text("Tools")
+                }
+
             SettingsView()
                 .tabItem {
                     Image(systemName: "gearshape")
