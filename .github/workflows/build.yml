@@ -68,32 +68,16 @@ jobs:
       - name: Set artifact metadata
         id: artifact_metadata
         env:
-          filetype_parameter: ${{ steps.filetype_parameter.outputs.filetype_parameter }}
-          file_to_build: ${{ steps.file_to_build.outputs.file_to_build }}
           scheme: ${{ steps.scheme.outputs.scheme }}
         run: |
-          build_settings=$(xcodebuild \
-            -showBuildSettings \
-            -scheme "$scheme" \
-            -"$filetype_parameter" "$file_to_build" \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
-            PROVISIONING_PROFILE="" \
-            CODE_SIGN_IDENTITY="")
-
-          marketing_version=$(echo "$build_settings" | awk -F' = ' '/MARKETING_VERSION = / {print $2; exit}')
-          build_version=$(echo "$build_settings" | awk -F' = ' '/CURRENT_PROJECT_VERSION = / {print $2; exit}')
-          info_plist=$(echo "$build_settings" | awk -F' = ' '/INFOPLIST_FILE = / {print $2; exit}')
-
-          if [ -z "$marketing_version" ] && [ -n "$info_plist" ]; then
-            marketing_version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$info_plist")
+          info_plist="$scheme/Info.plist"
+          if [ ! -f "$info_plist" ]; then
+            echo "Info.plist not found at $info_plist" >&2
+            exit 1
           fi
-          if [ -z "$build_version" ] && [ -n "$info_plist" ]; then
-            build_version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$info_plist")
-          fi
+
+          marketing_version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$info_plist" 2>/dev/null || true)
+          build_version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$info_plist" 2>/dev/null || true)
 
           if [ -z "$marketing_version" ] || [ -z "$build_version" ]; then
             echo "Failed to resolve version metadata from build settings or Info.plist" >&2
@@ -210,32 +194,16 @@ jobs:
       - name: Set artifact metadata
         id: artifact_metadata
         env:
-          filetype_parameter: ${{ steps.filetype_parameter.outputs.filetype_parameter }}
-          file_to_build: ${{ steps.file_to_build.outputs.file_to_build }}
           scheme: ${{ steps.scheme.outputs.scheme }}
         run: |
-          build_settings=$(xcodebuild \
-            -showBuildSettings \
-            -scheme "$scheme" \
-            -"$filetype_parameter" "$file_to_build" \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
-            PROVISIONING_PROFILE="" \
-            CODE_SIGN_IDENTITY="")
-
-          marketing_version=$(echo "$build_settings" | awk -F' = ' '/MARKETING_VERSION = / {print $2; exit}')
-          build_version=$(echo "$build_settings" | awk -F' = ' '/CURRENT_PROJECT_VERSION = / {print $2; exit}')
-          info_plist=$(echo "$build_settings" | awk -F' = ' '/INFOPLIST_FILE = / {print $2; exit}')
-
-          if [ -z "$marketing_version" ] && [ -n "$info_plist" ]; then
-            marketing_version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$info_plist")
+          info_plist="$scheme/Info.plist"
+          if [ ! -f "$info_plist" ]; then
+            echo "Info.plist not found at $info_plist" >&2
+            exit 1
           fi
-          if [ -z "$build_version" ] && [ -n "$info_plist" ]; then
-            build_version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$info_plist")
-          fi
+
+          marketing_version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$info_plist" 2>/dev/null || true)
+          build_version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$info_plist" 2>/dev/null || true)
 
           if [ -z "$marketing_version" ] || [ -z "$build_version" ]; then
             echo "Failed to resolve version metadata from build settings or Info.plist" >&2
