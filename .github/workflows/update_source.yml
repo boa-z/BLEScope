@@ -1,0 +1,58 @@
+name: Update AltStore Source
+
+"on":
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  update-source:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.release.tag_name == 'nightly' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Record Job Start Time
+        id: job_start_time
+        run: echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Update AltStore Source From Nightly Release
+        id: update_source
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python .github/update_json.py
+
+      - name: Upload Source To Nightly Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nightly
+          files: .github/apps.json
+          overwrite_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Calculate Job Duration
+        id: duration
+        if: always()
+        run: |
+          end_time=$(date +%s)
+          duration=$((end_time - ${{ steps.job_start_time.outputs.start_time }}))
+          echo "duration=$duration seconds" >> "$GITHUB_OUTPUT"
+
+      - name: Create Job Summary
+        if: always()
+        run: |
+          echo "## Update AltStore Source Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Generated .github/apps.json and uploaded it to the nightly release asset." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Execution time: ${{ steps.duration.outputs.duration }}" >> "$GITHUB_STEP_SUMMARY"

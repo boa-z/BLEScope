@@ -1,0 +1,42 @@
+{
+  "name": "BLEScope",
+  "identifier": "com.example.blescope",
+  "website": "https://github.com/boa-z/BLEScope",
+  "subtitle": "BLEScope official AltStore source.",
+  "description": "This is the official AltStore source for BLEScope.\n\nScan nearby BLE peripherals, inspect services and characteristics, read and write payloads, monitor notifications, and export debugging logs.",
+  "tintColor": "#0F766E",
+  "iconURL": "https://github.com/boa-z.png",
+  "apps": [
+    {
+      "beta": false,
+      "name": "BLEScope",
+      "bundleIdentifier": "com.example.blescope",
+      "developerName": "boa",
+      "subtitle": "SwiftUI BLE debugging tool for iPhone and iPad.",
+      "localizedDescription": "Scan nearby BLE peripherals, inspect services and characteristics, read and write payloads, monitor notifications, and export debugging logs.",
+      "category": "developer",
+      "tintColor": "#0F766E",
+      "iconURL": "https://github.com/boa-z.png",
+      "screenshotURLs": [],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {
+          "NSBluetoothAlwaysUsageDescription": "Bluetooth access is required for BLE scanning, connecting, and debugging.",
+          "NSBluetoothPeripheralUsageDescription": "Bluetooth access is required for BLE scanning, connecting, and debugging."
+        }
+      },
+      "versions": [],
+      "releaseChannels": [
+        {
+          "track": "stable",
+          "releases": []
+        },
+        {
+          "track": "nightly",
+          "releases": []
+        }
+      ]
+    }
+  ],
+  "news": []
+}

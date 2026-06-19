@@ -1,22 +1,37 @@
 name: Xcode - Build
 
-on:
+"on":
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      release__nightly:
+        description: Create a nightly release
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  scheme: BLEScope
 
 jobs:
-  build:
+  build_ios:
     name: Build IPA (unsigned)
     runs-on: macos-latest
     env:
-      scheme: BLEScope
-      archive_path: archive
+      archive_path: archive-ios
+    outputs:
+      ipa_artifact: ${{ steps.artifact_metadata.outputs.artifact_name }}.ipa
+      version_label: ${{ steps.artifact_metadata.outputs.version_label }}
+      short_sha: ${{ steps.artifact_metadata.outputs.short_sha }}
 
     steps:
       - uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: 'latest-stable'
+          xcode-version: "latest-stable"
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,28 +39,75 @@ jobs:
       - name: Set Scheme
         id: scheme
         run: |
-          if [ "$scheme" = "default" ]
-          then
+          if [ "$scheme" = "default" ]; then
             scheme_list=$(xcodebuild -list -json | tr -d "\n")
-            scheme=$(echo $scheme_list | ruby -e "require 'json'; puts JSON.parse(STDIN.gets)['project']['targets'][0]")
-            echo Using default scheme: $scheme
+            scheme=$(echo "$scheme_list" | ruby -e "require 'json'; puts JSON.parse(STDIN.gets)['project']['targets'][0]")
+            echo "Using default scheme: $scheme"
           else
-            echo Using configured scheme: $scheme
+            echo "Using configured scheme: $scheme"
           fi
-          echo "scheme=$scheme" >> $GITHUB_OUTPUT
+          echo "scheme=$scheme" >> "$GITHUB_OUTPUT"
 
       - name: Set filetype_parameter
         id: filetype_parameter
         run: |
-          filetype_parameter=`ls -A | grep -i \.xcworkspace$ && echo workspace || echo project`
-          echo "filetype_parameter=$filetype_parameter" >> $GITHUB_OUTPUT
+          if ls -A | grep -qi "\.xcworkspace$"; then
+            filetype_parameter=workspace
+          else
+            filetype_parameter=project
+          fi
+          echo "filetype_parameter=$filetype_parameter" >> "$GITHUB_OUTPUT"
 
       - name: Set file_to_build
         id: file_to_build
         run: |
-          file_to_build=`ls -A | grep -i \.xcworkspace$ || ls -A | grep -i \.xcodeproj$`
-          file_to_build=`echo $file_to_build | awk '{$1=$1;print}'`
-          echo "file_to_build=$file_to_build" >> $GITHUB_OUTPUT
+          file_to_build=$(ls -A | grep -i "\.xcworkspace$" || ls -A | grep -i "\.xcodeproj$")
+          file_to_build=$(echo "$file_to_build" | awk '{$1=$1;print}')
+          echo "file_to_build=$file_to_build" >> "$GITHUB_OUTPUT"
+
+      - name: Set artifact metadata
+        id: artifact_metadata
+        env:
+          filetype_parameter: ${{ steps.filetype_parameter.outputs.filetype_parameter }}
+          file_to_build: ${{ steps.file_to_build.outputs.file_to_build }}
+          scheme: ${{ steps.scheme.outputs.scheme }}
+        run: |
+          build_settings=$(xcodebuild \
+            -showBuildSettings \
+            -scheme "$scheme" \
+            -"$filetype_parameter" "$file_to_build" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            PROVISIONING_PROFILE="" \
+            CODE_SIGN_IDENTITY="")
+
+          marketing_version=$(echo "$build_settings" | awk -F' = ' '/MARKETING_VERSION = / {print $2; exit}')
+          build_version=$(echo "$build_settings" | awk -F' = ' '/CURRENT_PROJECT_VERSION = / {print $2; exit}')
+          info_plist=$(echo "$build_settings" | awk -F' = ' '/INFOPLIST_FILE = / {print $2; exit}')
+
+          if [ -z "$marketing_version" ] && [ -n "$info_plist" ]; then
+            marketing_version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$info_plist")
+          fi
+          if [ -z "$build_version" ] && [ -n "$info_plist" ]; then
+            build_version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$info_plist")
+          fi
+
+          if [ -z "$marketing_version" ] || [ -z "$build_version" ]; then
+            echo "Failed to resolve version metadata from build settings or Info.plist" >&2
+            exit 1
+          fi
+
+          short_sha=$(echo "${GITHUB_SHA}" | cut -c1-7)
+          version_label="${marketing_version}+${build_version}"
+          artifact_name="${scheme}-${version_label}-${short_sha}-unsigned"
+          echo "marketing_version=$marketing_version" >> "$GITHUB_OUTPUT"
+          echo "build_version=$build_version" >> "$GITHUB_OUTPUT"
+          echo "version_label=$version_label" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
 
       - name: Archive
         env:
@@ -61,6 +123,12 @@ jobs:
             -destination "generic/platform=iOS" \
             -sdk iphoneos \
             CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            PROVISIONING_PROFILE="" \
+            CODE_SIGN_IDENTITY="" \
             -configuration Release | tee build.log
 
       - name: Tar Build Artifact
@@ -75,19 +143,249 @@ jobs:
           path: build.log
 
       - name: Upload Archive Artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.archive_path }}.xcarchive.tar
+          name: ${{ steps.artifact_metadata.outputs.artifact_name }}.xcarchive.tar
           path: ${{ env.archive_path }}.xcarchive.tar
 
       - name: Create IPA
         if: success()
-        run: |
-          sh .github/build_github.sh
+        env:
+          artifact_name: ${{ steps.artifact_metadata.outputs.artifact_name }}
+        run: sh .github/build_github.sh
 
       - name: Upload IPA Artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.scheme }}.ipa
-          path: ${{ env.scheme }}.ipa
+          name: ${{ steps.artifact_metadata.outputs.artifact_name }}.ipa
+          path: ${{ steps.artifact_metadata.outputs.artifact_name }}.ipa
+
+  build_macos_catalyst:
+    name: Build Mac Catalyst DMG
+    runs-on: macos-latest
+    env:
+      derived_data_path: build-maccatalyst
+    outputs:
+      dmg_artifact: ${{ steps.artifact_metadata.outputs.artifact_name }}.dmg
+
+    steps:
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "latest-stable"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set Scheme
+        id: scheme
+        run: |
+          if [ "$scheme" = "default" ]; then
+            scheme_list=$(xcodebuild -list -json | tr -d "\n")
+            scheme=$(echo "$scheme_list" | ruby -e "require 'json'; puts JSON.parse(STDIN.gets)['project']['targets'][0]")
+            echo "Using default scheme: $scheme"
+          else
+            echo "Using configured scheme: $scheme"
+          fi
+          echo "scheme=$scheme" >> "$GITHUB_OUTPUT"
+
+      - name: Set filetype_parameter
+        id: filetype_parameter
+        run: |
+          if ls -A | grep -qi "\.xcworkspace$"; then
+            filetype_parameter=workspace
+          else
+            filetype_parameter=project
+          fi
+          echo "filetype_parameter=$filetype_parameter" >> "$GITHUB_OUTPUT"
+
+      - name: Set file_to_build
+        id: file_to_build
+        run: |
+          file_to_build=$(ls -A | grep -i "\.xcworkspace$" || ls -A | grep -i "\.xcodeproj$")
+          file_to_build=$(echo "$file_to_build" | awk '{$1=$1;print}')
+          echo "file_to_build=$file_to_build" >> "$GITHUB_OUTPUT"
+
+      - name: Set artifact metadata
+        id: artifact_metadata
+        env:
+          filetype_parameter: ${{ steps.filetype_parameter.outputs.filetype_parameter }}
+          file_to_build: ${{ steps.file_to_build.outputs.file_to_build }}
+          scheme: ${{ steps.scheme.outputs.scheme }}
+        run: |
+          build_settings=$(xcodebuild \
+            -showBuildSettings \
+            -scheme "$scheme" \
+            -"$filetype_parameter" "$file_to_build" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            PROVISIONING_PROFILE="" \
+            CODE_SIGN_IDENTITY="")
+
+          marketing_version=$(echo "$build_settings" | awk -F' = ' '/MARKETING_VERSION = / {print $2; exit}')
+          build_version=$(echo "$build_settings" | awk -F' = ' '/CURRENT_PROJECT_VERSION = / {print $2; exit}')
+          info_plist=$(echo "$build_settings" | awk -F' = ' '/INFOPLIST_FILE = / {print $2; exit}')
+
+          if [ -z "$marketing_version" ] && [ -n "$info_plist" ]; then
+            marketing_version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$info_plist")
+          fi
+          if [ -z "$build_version" ] && [ -n "$info_plist" ]; then
+            build_version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$info_plist")
+          fi
+
+          if [ -z "$marketing_version" ] || [ -z "$build_version" ]; then
+            echo "Failed to resolve version metadata from build settings or Info.plist" >&2
+            exit 1
+          fi
+
+          short_sha=$(echo "${GITHUB_SHA}" | cut -c1-7)
+          version_label="${marketing_version}+${build_version}"
+          artifact_name="${scheme}-${version_label}-${short_sha}-maccatalyst"
+          echo "marketing_version=$marketing_version" >> "$GITHUB_OUTPUT"
+          echo "build_version=$build_version" >> "$GITHUB_OUTPUT"
+          echo "version_label=$version_label" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
+
+      - name: Build Mac Catalyst App
+        env:
+          scheme: ${{ steps.scheme.outputs.scheme }}
+          filetype_parameter: ${{ steps.filetype_parameter.outputs.filetype_parameter }}
+          file_to_build: ${{ steps.file_to_build.outputs.file_to_build }}
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -scheme "$scheme" \
+            -"$filetype_parameter" "$file_to_build" \
+            -destination "generic/platform=macOS,variant=Mac Catalyst" \
+            -derivedDataPath "$derived_data_path" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            PROVISIONING_PROFILE="" \
+            CODE_SIGN_IDENTITY="" \
+            SWIFT_ENABLE_EXPLICIT_MODULES=NO \
+            -configuration Release | tee build-maccatalyst.log
+
+      - name: Resolve Mac Catalyst App Path
+        if: success()
+        env:
+          scheme: ${{ steps.scheme.outputs.scheme }}
+        run: |
+          app_path=$(find "$derived_data_path/Build/Products" -maxdepth 2 -type d -name "$scheme.app" | head -n 1)
+          if [ -z "$app_path" ]; then
+            echo "Mac Catalyst app not found under $derived_data_path/Build/Products" >&2
+            find "$derived_data_path/Build/Products" -maxdepth 2 -type d | sort || true
+            exit 1
+          fi
+          echo "app_path=$app_path" >> "$GITHUB_ENV"
+
+      - name: Package Mac App Artifact
+        if: success()
+        run: |
+          rm -f "${{ steps.artifact_metadata.outputs.artifact_name }}.app.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$app_path" "${{ steps.artifact_metadata.outputs.artifact_name }}.app.zip"
+
+      - name: Upload Mac Build Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-maccatalyst.log
+          path: build-maccatalyst.log
+
+      - name: Upload Mac App Artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact_metadata.outputs.artifact_name }}.app.zip
+          path: ${{ steps.artifact_metadata.outputs.artifact_name }}.app.zip
+
+      - name: Create DMG
+        if: success()
+        env:
+          artifact_name: ${{ steps.artifact_metadata.outputs.artifact_name }}
+          volume_name: BLEScope
+          app_path: ${{ env.app_path }}
+        run: sh .github/build_macos_dmg.sh
+
+      - name: Upload DMG Artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact_metadata.outputs.artifact_name }}.dmg
+          path: ${{ steps.artifact_metadata.outputs.artifact_name }}.dmg
+
+  release-nightly:
+    name: Nightly Release
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.release__nightly) || (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) }}
+    runs-on: ubuntu-latest
+    needs: [build_ios, build_macos_catalyst]
+    permissions:
+      contents: write
+    concurrency:
+      group: release-nightly
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download IPA Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build_ios.outputs.ipa_artifact }}
+          path: release-assets
+
+      - name: Download DMG Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build_macos_catalyst.outputs.dmg_artifact }}
+          path: release-assets
+
+      - name: Prepare Release Assets
+        run: |
+          mv "release-assets/${{ needs.build_ios.outputs.ipa_artifact }}" BLEScope.ipa
+          mv "release-assets/${{ needs.build_macos_catalyst.outputs.dmg_artifact }}" BLEScope-maccatalyst.dmg
+
+      - name: Get Commit Info
+        id: commit_info
+        run: |
+          commit_sha=$(git rev-parse HEAD)
+          commit_msg=$(git log -1 --pretty=%s)
+          echo "commit_sha=$commit_sha" >> "$GITHUB_OUTPUT"
+          echo "commit_msg=$commit_msg" >> "$GITHUB_OUTPUT"
+
+      - name: Update AltStore Source
+        env:
+          ALTSTORE_MODE: nightly-local
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LOCAL_IPA_PATH: BLEScope.ipa
+          VERSION_LABEL: ${{ needs.build_ios.outputs.version_label }}
+          COMMIT_SHA: ${{ steps.commit_info.outputs.commit_sha }}
+          COMMIT_MSG: ${{ steps.commit_info.outputs.commit_msg }}
+          NIGHTLY_LINK: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
+        run: python .github/update_json.py
+
+      - name: Publish Nightly Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nightly
+          name: Nightly
+          prerelease: true
+          make_latest: false
+          body: |
+            Version: ${{ needs.build_ios.outputs.version_label }}
+            Commit: ${{ needs.build_ios.outputs.short_sha }}
+            Message: ${{ steps.commit_info.outputs.commit_msg }}
+            Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
+          files: |
+            BLEScope.ipa
+            BLEScope-maccatalyst.dmg
+            .github/apps.json
+          overwrite_files: true
